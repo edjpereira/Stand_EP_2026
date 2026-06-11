@@ -15,7 +15,7 @@ class Client extends Model
         'email',
         'phone',
         'address',
-        'nif',
+        'taxId',
     ];
 
     public function sales(): HasMany
