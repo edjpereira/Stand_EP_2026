@@ -23,7 +23,7 @@ class ClientFactory extends Factory
             'phone' => $this->faker->phoneNumber(),
             'address' => $this->faker->address(),
             // Gera um número único de 9 dígitos fictício
-            'tax_id' => $this->faker->unique()->numerify('#########'),
+            'taxId' => $this->faker->unique()->numerify('#########'),
         ];
     }
 }

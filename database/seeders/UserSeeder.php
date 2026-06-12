@@ -1,19 +1,29 @@
 <?php
 
-    namespace Database\Seeders;
+namespace Database\Seeders;
 
-    use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-    use Illuminate\Database\Seeder;
-    use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use App\Models\User;
 
-    class UserSeeder extends Seeder
+class UserSeeder extends Seeder
+{
+    public function run(): void
     {
-        public function run(): void
-        {
-            User::factory()->create([
-                'name' => 'Eduardo Pereira',
-                'email' => 'edjpereira@posteo.pt',
-                'password' => bcrypt('password123'),
-            ]);
-        }
+        // Administrador (Hierarquia Alta)
+        User::factory()->create([
+            'name' => 'Eduardo Pereira (Admin)',
+            'email' => 'edjpereira@coiso.pt',
+            'password' => bcrypt('password123'),
+            'role' => 'admin',
+        ]);
+
+        // Funcionário Padrão (Hierarquia Base)
+        User::factory()->create([
+            'name' => 'Funcionário Stand',
+            'email' => 'vendedor@coiso.pt',
+            'password' => bcrypt('password123'),
+            'role' => 'employee',
+        ]);
     }
+}
