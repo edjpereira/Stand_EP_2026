@@ -13,7 +13,7 @@ class UserSeeder extends Seeder
         // Administrador (Hierarquia Alta)
         User::factory()->create([
             'name' => 'Eduardo Pereira (Admin)',
-            'email' => 'edjpereira@coiso.pt',
+            'email' => 'edjpereira@posteo.pt',
             'password' => bcrypt('password123'),
             'role' => 'admin',
         ]);

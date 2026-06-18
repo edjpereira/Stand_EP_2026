@@ -26,9 +26,9 @@
                 @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
             <div class="col-md-4">
-                <label class="form-label">Tax ID (NIF)</label>
-                <input type="text" name="tax_id" class="form-control @error('tax_id') is-invalid @enderror" value="{{ old('tax_id', $client->tax_id) }}">
-                @error('tax_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                <label class="form-label">NIF</label>
+                <input type="text" name="taxId" class="form-control @error('taxId') is-invalid @enderror" value="{{ old('taxId', $client->taxId) }}">
+                @error('taxId') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
             <div class="col-md-4">
                 <label class="form-label">Morada</label>

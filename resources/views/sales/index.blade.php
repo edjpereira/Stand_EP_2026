@@ -14,41 +14,88 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID Venda</th>
-                    <th>Cliente</th>
-                    <th>Viatura</th>
-                    <th>Data</th>
-                    <th>Valor da Venda</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($sales as $sale)
-                <tr>
-                    <td>#{{ $sale->id }}</td>
-                    <td>{{ $sale->client->name }}</td>
-                    <td><strong>{{ $sale->vehicle->make }} {{ $sale->vehicle->model }}</strong> ({{ $sale->vehicle->plate }})</td>
-                    <td>{{ \Carbon\Carbon::parse($sale->sale_date)->format('d/m/Y') }}</td>
-                    <td><strong>{{ number_format($sale->sale_amount, 2, ',', '.') }} €</strong></td>
-                    <td>
-                        <a href="{{ route('sales.show', $sale->id) }}" class="btn btn-sm btn-info text-white">Detalhes</a>
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID Venda</th>
+                            <th>Cliente</th>
+                            <th>Viatura</th>
+                            <th>Matrícula</th>
+                            <th>Preço de Venda</th>
+                            <th>Data</th>
+                            <th class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($sales as $sale)
+                        <tr>
+                            <td>#{{ $sale->id }}</td>
 
-                        @if(auth()->user()->role === 'admin')
-                            <form action="{{ route('sales.destroy', $sale->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Ao anular a venda, o carro voltará a ficar Disponível. Continuar?')">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger">Anular</button>
-                            </form>
-                        @endif
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
+                            <td>
+                                <a href="{{ route('clients.show', $sale->client->id) }}" class="text-decoration-none fw-bold text-primary link-hover">
+                                    {{ $sale->client->name }}
+                                </a>
+                            </td>
+
+                            <td>
+                                <a href="{{ route('vehicles.show', $sale->vehicle->id) }}" class="text-decoration-none text-dark link-hover">
+                                    <strong>{{ $sale->vehicle->make }}</strong> {{ $sale->vehicle->model }}
+                                </a>
+                            </td>
+
+                            <td>
+                                <a href="{{ route('vehicles.show', $sale->vehicle->id) }}" class="text-decoration-none">
+                                    <span class="badge bg-light text-dark border border-primary target-badge">{{ $sale->vehicle->plate }}</span>
+                                </a>
+                            </td>
+
+                            <td>
+                                <strong>
+                                    {{ number_format($sale->price > 0 ? $sale->price : $sale->vehicle->price, 2, ',', '.') }} €
+                                </strong>
+                            </td>
+                            <td>{{ $sale->created_at->format('d/m/Y H:i') }}</td>
+
+                            <td class="text-center">
+                                <div class="btn-group" role="group">
+                                    <a href="{{ route('sales.show', $sale->id) }}" class="btn btn-sm btn-info text-white">Ver</a>
+
+                                    @if(Auth::user()->role === 'admin')
+                                        <a href="{{ route('sales.edit', $sale->id) }}" class="btn btn-sm btn-warning text-white">Editar</a>
+                                        <form action="{{ route('sales.destroy', $sale->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Tem a certeza que deseja anular esta venda?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger">Anular</button>
+                                        </form>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                Não existem vendas registadas no sistema.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
+
+<style>
+    .link-hover:hover {
+        text-decoration: underline !important;
+        color: #0d6efd !important;
+    }
+    .target-badge:hover {
+        background-color: #e9ecef !important;
+        border-color: #0a58ca !important;
+    }
+</style>
 @endsection
