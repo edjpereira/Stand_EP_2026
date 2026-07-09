@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Interaction extends Model
 {
-    protected $fillable = ['client_id', 'date', 'type', 'comment', 'vehicle_id'];
+    protected $fillable = ['client_id', 'user_id', 'date', 'type', 'comment', 'vehicle_id', 'attachment'];
 
     public function client()
     {
@@ -19,5 +19,9 @@ class Interaction extends Model
         // Se a tua chave estrangeira na tabela de interações se chamar 'vehicle_id',
         // o Laravel assume-a automaticamente aqui.
         return $this->belongsTo(Vehicle::class);
+    }
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

@@ -6,16 +6,15 @@ use App\Models\Client;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use App\Models\AuditLog;
 
 class AdminController extends Controller
 {
     public function __construct()
     {
-        // Garante que TODOS os métodos aqui dentro precisam de ser admin
         $this->middleware('can:admin-only');
     }
 
-    // A página centralizada com as abas (a "Trash Box" única)
     public function unifiedTrash()
     {
         $this->authorize('admin-only');
@@ -26,7 +25,6 @@ class AdminController extends Controller
         return view('admin.trash', compact('deletedClients', 'deletedVehicles'));
     }
 
-    // Operações de Clientes
     public function restoreClient($id)
     {
         Client::onlyTrashed()->findOrFail($id)->restore();
@@ -39,16 +37,19 @@ class AdminController extends Controller
         return back()->with('success', 'Cliente apagado definitivamente.');
     }
 
-    // Operações de Veículos
     public function restoreVehicle($id)
     {
         Vehicle::onlyTrashed()->findOrFail($id)->restore();
         return back()->with('success', 'Viatura restaurada.');
     }
 
+
     public function forceDeleteVehicle($id)
-    {
-        Vehicle::onlyTrashed()->findOrFail($id)->forceDelete();
-        return back()->with('success', 'Viatura apagada definitivamente.');
-    }
+{
+    $vehicle = \App\Models\Vehicle::withTrashed()->findOrFail($id);
+
+    $vehicle->forceDelete();
+
+    return redirect()->route('vehicles.index')->with('success', 'Viatura eliminada permanentemente!');
+}
 }

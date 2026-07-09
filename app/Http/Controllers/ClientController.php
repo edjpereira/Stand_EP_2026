@@ -7,13 +7,48 @@ use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use App\Models\AuditLog;
 
 class ClientController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Paginação a 25
-        $clients = \App\Models\Client::orderBy('id', 'asc')->paginate(25);
+        $query = Client::withCount(['sales', 'interactions']);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('phone', 'like', '%' . $search . '%');
+            });
+        }
+
+        if ($request->filled('filter_status')) {
+            $status = $request->input('filter_status');
+
+            if ($status === 'has_sales') {
+                $query->whereHas('sales');
+            } elseif ($status === 'has_interactions') {
+                // Mostra APENAS quem tem registos no CRM (interações)
+                $query->whereHas('interactions');
+            } elseif ($status === 'no_interactions') {
+                // Mostra quem está no sistema mas NÃO TEM qualquer interação CRM
+                $query->whereDoesntHave('interactions');
+            }
+        }
+
+        if ($request->filled('tax_id')) {
+            $query->where('taxId', $request->input('tax_id')); // Atenção se na BD usas tax_id ou taxId
+        }
+
+        $sortBy = $request->input('sort_by', 'id');
+        $sortOrder = $request->input('sort_order', 'asc');
+
+        if (in_array($sortBy, ['id', 'name', 'created_at'])) {
+            $query->orderBy($sortBy, $sortOrder);
+        }
+
+        $clients = $query->paginate(15)->withQueryString();
 
         return view('clients.index', compact('clients'));
     }
@@ -58,8 +93,8 @@ class ClientController extends Controller
     {
         $client = Client::with(['sales.vehicle', 'interactions.vehicle'])->findOrFail($id);
         $vehicles = Vehicle::orderBy('make', 'asc')
-                       ->orderBy('model', 'asc')
-                       ->get();
+            ->orderBy('model', 'asc')
+            ->get();
 
         return view('clients.show', compact('client', 'vehicles'));
     }
@@ -97,10 +132,24 @@ class ClientController extends Controller
     // No ClientController.php
     public function destroy(Client $client)
     {
-        // Executa o Soft Delete
+        $nif = $client->nif ?? 'N/D';
+
+        $detalhes = "Cliente ID: {$client->id} - Nome: {$client->name} | E-mail: {$client->email} | Telefone: {$client->phone} | NIF: {$nif}";
+
+        $acaoAuditoria = auth()->user()->role === 'admin'
+            ? 'Movido para Reciclagem (Soft Delete)'
+            : 'Pedido de Eliminação Submetido';
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => $acaoAuditoria,
+            'model_type' => 'Cliente',
+            'model_id' => $client->id,
+            'details' => $detalhes
+        ]);
+
         $client->delete();
 
-        // Mensagem diferenciada conforme o cargo
         $mensagem = auth()->user()->role === 'admin'
             ? 'Cliente movido para a reciclagem.'
             : 'Pedido de eliminação do cliente submetido para aprovação.';

@@ -25,7 +25,8 @@
                 <select name="vehicle_id" class="form-select @error('vehicle_id') is-invalid @enderror">
                     <option value="">-- Selecione a Viatura --</option>
                     @foreach($vehicles as $vehicle)
-                        <option value="{{ $vehicle->id }}" {{ old('vehicle_id') == $vehicle->id ? 'selected' : '' }}>
+                        {{-- Verifica primeiro o old(), depois se é o ID vindo do botão da Show --}}
+                        <option value="{{ $vehicle->id }}" {{ (old('vehicle_id', $selectedVehicleId) == $vehicle->id) ? 'selected' : '' }}>
                             {{ $vehicle->make }} {{ $vehicle->model }} - [{{ $vehicle->plate }}] ({{ number_format($vehicle->price, 2, ',', '.') }} €)
                         </option>
                     @endforeach
@@ -50,7 +51,7 @@
 
         <div class="mb-4">
             <label class="form-label">Observações / Notas de Venda</label>
-            <textarea name="notes" class="form-control" rows="3" placeholder="Ex: Desconto de campanha incluído, garantia de 2 anos...精度">{{ old('notes') }}</textarea>
+            <textarea name="notes" class="form-control" rows="3" placeholder="Ex: Desconto de campanha incluído, garantia de 2 anos...">{{ old('notes') }}</textarea>
         </div>
 
         <button type="submit" class="btn btn-success">Concluir Venda</button>

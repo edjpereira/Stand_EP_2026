@@ -14,12 +14,11 @@ class VehicleController extends Controller
 
     public function index(Request $request)
     {
-        // Iniciamos a query
         $query = Vehicle::query();
 
-
+        // 1. Filtro de Pesquisa Geral (Texto)
         if ($request->filled('search')) {
-            $search = $request->input('search');
+            $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('make', 'like', "%{$search}%")
                     ->orWhere('model', 'like', "%{$search}%")
@@ -27,15 +26,61 @@ class VehicleController extends Controller
             });
         }
 
-        $allowedSorts = ['id', 'make', 'model', 'year', 'price'];
-        $sortBy = $request->input('sort_by', 'id'); // Padrão: id
-        $sortOrder = $request->input('sort_order', 'asc'); // Padrão: asc
+        // 2. Filtro de Quilometragem
+        if ($request->filled('km_min') || $request->filled('km_max')) {
+            if ($request->filled('km_min') && $request->filled('km_max')) {
+                $kmInicial = (int) $request->input('km_min');
+                $kmFinal = (int) $request->input('km_max');
 
-        if (in_array($sortBy, $allowedSorts)) {
-            $query->orderBy($sortBy, $sortOrder);
+                $minKm = min($kmInicial, $kmFinal);
+                $maxKm = max($kmInicial, $kmFinal);
+
+                if ($maxKm >= 300000 && ($kmInicial == 300000 || $kmFinal == 300000)) {
+                    $query->where('mileage', '>=', $minKm);
+                } else {
+                    $query->whereBetween('mileage', [$minKm, $maxKm]);
+                }
+            } elseif ($request->filled('km_min')) {
+                $query->where('mileage', '>=', (int) $request->input('km_min'));
+            } elseif ($request->filled('km_max')) {
+                $maxKm = (int) $request->input('km_max');
+
+                if ($maxKm >= 300000) {
+                    $query->where('mileage', '>=', 300000);
+                } else {
+                    $query->where('mileage', '<=', $maxKm);
+                }
+            }
         }
 
-        $vehicles = $query->paginate(25)->withQueryString();;
+        // 3. Filtro de Ano
+        if ($request->filled('year_min') || $request->filled('year_max')) {
+            if ($request->filled('year_min') && $request->filled('year_max')) {
+                $anoInicial = (int) $request->input('year_min');
+                $anoFinal = (int) $request->input('year_max');
+
+                $minYear = min($anoInicial, $anoFinal);
+                $maxYear = max($anoInicial, $anoFinal);
+
+                $query->whereBetween('year', [$minYear, $maxYear]);
+            } elseif ($request->filled('year_min')) {
+                $query->where('year', '>=', (int) $request->input('year_min'));
+            } elseif ($request->filled('year_max')) {
+                $query->where('year', '<=', (int) $request->input('year_max'));
+            }
+        }
+
+        // 4. Filtro de Combustível
+        if ($request->filled('fuel')) {
+            $query->where('fuel', $request->fuel);
+        }
+
+        // Ordenação e Paginação
+        $sortBy = $request->input('sort_by', 'id');
+        $sortOrder = $request->input('sort_order', 'desc');
+        $query->orderBy($sortBy, $sortOrder);
+
+        $vehicles = $query->paginate(10)->withQueryString();
 
         return view('vehicles.index', compact('vehicles'));
     }
@@ -47,12 +92,10 @@ class VehicleController extends Controller
 
     public function store(Request $request)
     {
-        // 1. Normalizar a matrícula antes da validação
         if ($request->has('plate')) {
             $request->merge(['plate' => $this->formatPortuguesePlate($request->input('plate'))]);
         }
 
-        // 2. Validação Estrita para Portugal
         $validated = $request->validate([
             'make' => 'required|string|max:255',
             'model' => 'required|string|max:255',
@@ -65,20 +108,23 @@ class VehicleController extends Controller
             'year' => 'required|integer|min:1900|max:' . (date('Y') + 1),
             'mileage' => 'required|integer|min:0',
             'price' => 'required|numeric|min:0',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:4096',
             'status' => 'required|in:available,sold',
         ], [
-            'plate.regex' => 'A matrícula indicada não é uma matrícula portuguesa válida (Formatos aceites: AA-00-00, 00-00-AA, 00-AA-00 ou AA-00-AA).',
-            'plate.unique' => 'Esta matrícula já se encontra registada no sistema.'
+            'plate.regex' => 'A matrícula indicada não é uma matrícula portuguesa válida.',
+            'plate.unique' => 'Esta matrícula já se encontra registada no sistema.',
+            'photo.max' => 'A fotografia é demasiado grande. Reduza o tamanho para menos de 4 MB.'
         ]);
 
         if ($request->hasFile('photo')) {
-            $validated['photo'] = $request->file('photo')->store('vehicles', 'public');
+            $path = $request->file('photo')->store('vehicles', 'public');
+            $validated['photo'] = $path;
         }
 
         Vehicle::create($validated);
 
-        $perPage = 25;
+        // Ajustado para bater certo com os 10 itens por página definidos no index
+        $perPage = 10;
         $lastPage = ceil(Vehicle::count() / $perPage);
 
         return redirect()->route('vehicles.index', ['page' => $lastPage])
@@ -87,7 +133,29 @@ class VehicleController extends Controller
 
     public function show(Vehicle $vehicle)
     {
-        return view('vehicles.show', compact('vehicle'));
+        $marcaSlug = strtolower(trim($vehicle->make));
+        $caminhoFotoMarca = "images/{$marcaSlug}.jpg";
+        if (!file_exists(public_path($caminhoFotoMarca))) {
+            $caminhoFotoMarca = "images/default_car.jpg";
+        }
+
+        $diretorioVeiculo = "vehicles/{$vehicle->id}";
+        $galeriaFotos = [];
+
+        if (Storage::disk('public')->exists($diretorioVeiculo)) {
+            $ficheiros = Storage::disk('public')->files($diretorioVeiculo);
+            sort($ficheiros);
+
+            foreach ($ficheiros as $ficheiro) {
+                $galeriaFotos[] = asset('storage/' . $ficheiro);
+            }
+        }
+
+        if (empty($galeriaFotos)) {
+            $galeriaFotos[] = asset($caminhoFotoMarca);
+        }
+
+        return view('vehicles.show', compact('vehicle', 'galeriaFotos', 'caminhoFotoMarca'));
     }
 
     public function edit(Vehicle $vehicle)
@@ -97,12 +165,10 @@ class VehicleController extends Controller
 
     public function update(Request $request, Vehicle $vehicle)
     {
-        // 1. Normalizar a matrícula antes da validação no update
         if ($request->has('plate')) {
             $request->merge(['plate' => $this->formatPortuguesePlate($request->input('plate'))]);
         }
 
-        // 2. Validação Estrita para Portugal no update
         $validated = $request->validate([
             'make' => 'required|string|max:255',
             'model' => 'required|string|max:255',
@@ -115,17 +181,19 @@ class VehicleController extends Controller
             'year' => 'required|integer|min:1900|max:' . (date('Y') + 1),
             'mileage' => 'required|integer|min:0',
             'price' => 'required|numeric|min:0',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:4096',
             'status' => 'required|in:available,sold',
         ], [
-            'plate.regex' => 'A matrícula indicada não é uma matrícula portuguesa válida (Formatos aceites: AA-00-00, 00-00-AA, 00-AA-00 ou AA-00-AA).',
-            'plate.unique' => 'Esta matrícula já se encontra registada no sistema.'
+            'plate.regex' => 'A matrícula indicada não é uma matrícula portuguesa válida.',
+            'plate.unique' => 'Esta matrícula já se encontra registada no sistema.',
+            'photo.max' => 'A fotografia é demasiado grande. Reduza o tamanho para menos de 4 MB.'
         ]);
 
         if ($request->hasFile('photo')) {
-            if ($vehicle->photo) {
+            if ($vehicle->photo && Storage::disk('public')->exists($vehicle->photo)) {
                 Storage::disk('public')->delete($vehicle->photo);
             }
+
             $path = $request->file('photo')->store('vehicles', 'public');
             $validated['photo'] = $path;
         }
@@ -137,8 +205,13 @@ class VehicleController extends Controller
 
     public function destroy(Vehicle $vehicle)
     {
-        $msg = $this->handleSoftDelete($vehicle, 'viatura');
-        return redirect()->route('vehicles.index')->with('success', $msg);
+        $vehicle->delete();
+
+        $mensagem = auth()->user()->role === 'admin'
+            ? 'Viatura movida para a reciclagem.'
+            : 'Pedido de eliminação de viatura submetido para aprovação.';
+
+        return redirect()->route('vehicles.index')->with('success', $mensagem);
     }
 
     private function formatPortuguesePlate($plate)
@@ -150,20 +223,15 @@ class VehicleController extends Controller
         }
         return $cleanPlate;
     }
+
     public function reports()
     {
-        // Dados estratégicos para o relatório/capturas de ecrã
         $totalVehicles = Vehicle::count();
         $availableVehicles = Vehicle::where('status', 'available')->count();
         $soldVehicles = Vehicle::where('status', 'sold')->count();
-
-        // Valor total do stock disponível em €
         $stockValue = Vehicle::where('status', 'available')->sum('price');
-
-        // Total de faturação (carros vendidos)
         $totalSalesValue = Vehicle::where('status', 'sold')->sum('price');
 
-        // Média de idades do stock (ano atual - ano do carro)
         $currentYear = date('Y');
         $averageAge = Vehicle::where('status', 'available')
             ->selectRaw("AVG(? - year) as avg_age", [$currentYear])
@@ -177,5 +245,64 @@ class VehicleController extends Controller
             'totalSalesValue',
             'averageAge'
         ));
+    }
+
+    public function uploadPhoto(Request $request, Vehicle $vehicle)
+    {
+        $request->validate([
+            'photo' => 'required|image|mimes:jpeg,png,jpg,webp|max:4096',
+        ], [
+            'photo.max' => 'A fotografia é demasiado grande. Reduza o tamanho para menos de 4 MB.'
+        ]);
+
+        $diretorioVeiculo = "vehicles/{$vehicle->id}";
+
+        $totalFotosAtuais = 0;
+        if (Storage::disk('public')->exists($diretorioVeiculo)) {
+            $totalFotosAtuais = count(Storage::disk('public')->files($diretorioVeiculo));
+        }
+
+        if ($totalFotosAtuais >= 5) {
+            return redirect()->back()->with('error', 'Limite atingido! Cada viatura pode ter no máximo 5 fotografias.');
+        }
+
+        if ($request->hasFile('photo')) {
+            $nomeFicheiro = 'foto_' . time() . '.' . $request->file('photo')->getClientOriginalExtension();
+            $path = $request->file('photo')->storeAs($diretorioVeiculo, $nomeFicheiro, 'public');
+
+            if ($totalFotosAtuais === 0) {
+                $vehicle->update(['photo' => $path]);
+            }
+        }
+
+        return redirect()->back()->with('success', 'Fotografia adicionada à galeria com sucesso!');
+    }
+
+    public function deletePhoto(Request $request, Vehicle $vehicle)
+    {
+        $urlFotoParaApagar = $request->input('photo_url');
+
+        if ($urlFotoParaApagar) {
+            $caminhoRelativo = str_replace(asset('storage/'), '', $urlFotoParaApagar);
+
+            if (Storage::disk('public')->exists($caminhoRelativo)) {
+                Storage::disk('public')->delete($caminhoRelativo);
+            }
+
+            $diretorioVeiculo = "vehicles/{$vehicle->id}";
+            $restantes = Storage::disk('public')->files($diretorioVeiculo);
+
+            if (!empty($restantes)) {
+                sort($restantes);
+                $vehicle->update(['photo' => $restantes[0]]);
+            } else {
+                $vehicle->update(['photo' => null]);
+                Storage::disk('public')->deleteDirectory($diretorioVeiculo);
+            }
+
+            return redirect()->route('vehicles.show', $vehicle->id)->with('success', 'Fotografia removida da galeria.');
+        }
+
+        return redirect()->back()->with('error', 'Não foi possível identificar a fotografia a eliminar.');
     }
 }

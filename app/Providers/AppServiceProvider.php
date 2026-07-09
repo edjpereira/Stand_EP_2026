@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-// CORREÇÃO: O caminho correto para o Paginator é este:
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Auth\Events\Login;
+use Carbon\Carbon;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -16,11 +18,16 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Tranca a paginação no formato do Bootstrap 5
         Paginator::useBootstrapFive();
-        // Define a regra para o admin
+
         Gate::define('admin-only', function ($user) {
             return $user->role === 'admin';
         });
+
+        Event::listen(Login::class, function ($event) {
+        $event->user->update([
+            'last_login_at' => Carbon::now()
+        ]);
+    });
     }
 }

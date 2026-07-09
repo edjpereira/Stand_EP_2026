@@ -12,8 +12,10 @@
     <link rel="dns-prefetch" href="//fonts.造型.com">
     <link href="https://fonts.googleapis.com/css?family=Nunito" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
+    @stack('styles')
 
     <style>
         .admin-link {
@@ -21,6 +23,7 @@
             text-shadow: 0px 0px 8px rgba(0, 212, 255, 0.3);
         }
     </style>
+    @livewireStyles
 </head>
 
 <body>
@@ -96,37 +99,42 @@
             </div>
         </nav>
 
-        @if(auth()->check() && auth()->user()->role === 'admin')
-    <nav class="navbar navbar-expand-md navbar-light border-bottom" style="background-color: #f8f9fa;">
-        <div class="container">
-            <div class="navbar-nav">
-                <span class="navbar-text me-4" style="font-family: monospace; font-size: 0.85rem; color: #007BFF;">
-                    <i class="bi bi-shield-lock me-1"></i> ADMIN_PANEL
-                </span>
+        @if (auth()->check() && auth()->user()->role === 'admin')
+            <nav class="navbar navbar-expand-md navbar-light border-bottom" style="background-color: #f8f9fa;">
+                <div class="container">
+                    <div class="navbar-nav">
+                        <span class="navbar-text me-4"
+                            style="font-family: monospace; font-size: 0.85rem; color: #007BFF;">
+                            <i class="bi bi-shield-lock me-1"></i> ADMIN_PANEL
+                        </span>
 
-                <a class="nav-link" href="{{ route('users.index') }}" style="color: #0065d0">
-                    <i class="bi bi-people me-1"></i> Utilizadores
-                </a>
+                        <a class="nav-link" href="{{ route('users.index') }}" style="color: #0065d0">
+                            <i class="bi bi-people me-1"></i> Utilizadores
+                        </a>
 
-                <a class="nav-link" href="{{ route('admin.trash') }}" style="color: #0065d0">
-                    <i class="bi bi-trash me-1"></i> Reciclagem
-                </a>
-                <a class="nav-link" href="{{ route('admin.reports') }}" style="color: #00D4FF !important; font-weight: 500;">
-                    <i class="bi bi-graph-up me-1"></i> Relatórios
-                </a>
+                        <a class="nav-link" href="{{ route('admin.trash') }}" style="color: #0065d0">
+                            <i class="bi bi-trash me-1"></i> Reciclagem
+                        </a>
+                        <a class="nav-link" href="{{ route('admin.reports') }}"
+                            style="color: #00D4FF !important; font-weight: 500;">
+                            <i class="bi bi-graph-up me-1"></i> Relatórios
+                        </a>
 
-                <a class="nav-link" href="{{ route('admin.audit') }}" style="color: #00D4FF !important; font-weight: 500;">
-                    <i class="bi bi-journal-check me-1"></i> Auditoria
-                </a>
-            </div>
-        </div>
-    </nav>
-@endif
+                        <a class="nav-link" href="{{ route('admin.audit') }}"
+                            style="color: #00D4FF !important; font-weight: 500;">
+                            <i class="bi bi-journal-check me-1"></i> Auditoria
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        @endif
 
         <main class="py-4">
             @yield('content')
         </main>
     </div>
+    @stack('scripts')
+    @livewireScripts
 </body>
 
 </html>

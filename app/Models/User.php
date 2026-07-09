@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -23,11 +24,17 @@ class User extends Authenticatable
         'birthday',
         'phone',
         'photo',
+        'must_change_password',
+        'last_login_at',
+        'role',
+        'admin_request_status',
     ];
+
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
     /**
      * Get the attributes that should be cast.
      *
@@ -38,21 +45,29 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'birthday' => 'date',   // Define explicitamente que é uma data
-            'phone' => 'string',    // Define que é texto
-            'photo' => 'string',    // Define que é o caminho do ficheiro (string)
+            'birthday' => 'date',
+            'last_login_at' => 'datetime',
+            'must_change_password' => 'boolean',
         ];
     }
+
+    /**
+     * Retorna o URL da foto ou o gerador de iniciais com o primeiro e último nome
+     */
     public function getPhotoUrlAttribute()
     {
         if ($this->photo) {
             return asset('storage/' . $this->photo);
         }
 
-        // Usamos apenas o campo 'name' da base de dados, garantindo que vai limpo sem tags ou extras
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=0D6EFD&color=fff&size=128';
+        // Extrai o primeiro e o último nome para gerar as iniciais exatas (ex: "Eduardo Silva" -> "ES")
+        $words = explode(' ', $this->name);
+        $firstInitials = isset($words[0]) ? Str::substr($words[0], 0, 1) : '';
+        $lastInitials = count($words) > 1 ? Str::substr(end($words), 0, 1) : '';
+        $initials = strtoupper($firstInitials . $lastInitials);
+
+        return 'https://ui-avatars.com/api/?name=' . urlencode($initials) . '&background=0D6EFD&color=fff&size=128&bold=true';
     }
-    // No App\Models\User.php
 
     public function isAdmin()
     {
